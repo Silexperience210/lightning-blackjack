@@ -1,907 +1,427 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ LIGHTNING BLACKJACK</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-    <style>
-        * { font-family: 'Orbitron', sans-serif; }
-        body { background: #0a0a0f; overflow-x: hidden; }
-        
-        .lightning-bg {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
-            background: radial-gradient(ellipse at 20% 30%, rgba(124, 58, 237, 0.15) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 70%, rgba(234, 179, 8, 0.15) 0%, transparent 50%);
-            animation: pulse-bg 8s ease-in-out infinite;
-        }
-        @keyframes pulse-bg { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-        
-        .glow-container {
-            background: rgba(10, 10, 15, 0.9);
-            border: 2px solid;
-            border-image: linear-gradient(135deg, #fbbf24, #7c3aed, #3b82f6) 1;
-            box-shadow: 0 0 30px rgba(251, 191, 36, 0.3), 0 0 60px rgba(124, 58, 237, 0.2),
-                        inset 0 0 30px rgba(251, 191, 36, 0.1);
-            position: relative; z-index: 1;
-        }
-        
-        .card {
-            width: 85px; height: 120px; border-radius: 12px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 32px; font-weight: 900; margin: 5px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,240,255,0.95) 100%);
-            position: relative; transition: all 0.3s ease;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(251, 191, 36, 0.4);
-            animation: card-enter 0.5s ease-out;
-        }
-        @keyframes card-enter {
-            from { opacity: 0; transform: translateY(-20px) rotateX(90deg); }
-            to { opacity: 1; transform: translateY(0) rotateX(0); }
-        }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(251, 191, 36, 0.6); }
-        .card-suit { font-size: 24px; position: absolute; top: 8px; left: 8px; }
-        .card-red { color: #ef4444; }
-        .card-black { color: #1a1a2e; }
-        .card-back {
-            background: linear-gradient(135deg, #1e1b4b 0%, #7c3aed 50%, #1e1b4b 100%);
-            color: #fbbf24;
-            box-shadow: 0 8px 32px rgba(124, 58, 237, 0.6), 0 0 30px rgba(124, 58, 237, 0.8);
-            animation: card-glow 2s ease-in-out infinite;
-        }
-        @keyframes card-glow {
-            0%, 100% { box-shadow: 0 8px 32px rgba(124, 58, 237, 0.6), 0 0 30px rgba(124, 58, 237, 0.8); }
-            50% { box-shadow: 0 8px 40px rgba(251, 191, 36, 0.8), 0 0 40px rgba(251, 191, 36, 1); }
-        }
-        
-        .chip {
-            width: 70px; height: 70px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 900; font-size: 18px; cursor: pointer;
-            transition: all 0.3s ease; position: relative;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-        }
-        .chip::before {
-            content: ''; position: absolute; inset: -5px; border-radius: 50%;
-            background: inherit; filter: blur(15px); opacity: 0.6; z-index: -1;
-        }
-        .chip:hover { transform: scale(1.2) rotate(5deg); filter: brightness(1.3); }
-        .chip-selected {
-            transform: scale(1.25); border: 4px solid #fbbf24;
-            animation: chip-pulse 1s ease-in-out infinite;
-        }
-        @keyframes chip-pulse {
-            0%, 100% { box-shadow: 0 0 20px currentColor, 0 0 40px currentColor; }
-            50% { box-shadow: 0 0 30px currentColor, 0 0 60px currentColor; }
-        }
-        
-        .btn-glow {
-            position: relative; overflow: hidden; font-weight: 900;
-            text-transform: uppercase; letter-spacing: 2px;
-            transition: all 0.3s ease; border: 2px solid;
-        }
-        .btn-glow::before {
-            content: ''; position: absolute; inset: 0;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
-            transform: translateX(-100%); transition: transform 0.6s;
-        }
-        .btn-glow:hover::before { transform: translateX(100%); }
-        .btn-primary {
-            background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #0a0a0f;
-            border-color: #fbbf24;
-            box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 0 40px rgba(251, 191, 36, 0.3);
-        }
-        .btn-primary:hover {
-            box-shadow: 0 0 30px rgba(251, 191, 36, 0.8), 0 0 60px rgba(251, 191, 36, 0.5);
-            transform: translateY(-2px);
-        }
-        .btn-secondary {
-            background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white;
-            border-color: #7c3aed;
-            box-shadow: 0 0 20px rgba(124, 58, 237, 0.6), 0 0 40px rgba(124, 58, 237, 0.3);
-        }
-        .btn-action {
-            background: linear-gradient(135deg, #3b82f6, #2563eb); color: white;
-            border-color: #3b82f6;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3);
-        }
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444, #dc2626); color: white;
-            border-color: #ef4444;
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6), 0 0 40px rgba(239, 68, 68, 0.3);
-        }
-        .btn-success {
-            background: linear-gradient(135deg, #10b981, #059669); color: white;
-            border-color: #10b981;
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), 0 0 40px rgba(16, 185, 129, 0.3);
-        }
-        
-        .text-glow-yellow {
-            color: #fbbf24;
-            text-shadow: 0 0 10px #fbbf24, 0 0 20px #fbbf24, 0 0 30px #fbbf24;
-        }
-        .text-glow-purple {
-            color: #a78bfa;
-            text-shadow: 0 0 10px #7c3aed, 0 0 20px #7c3aed;
-        }
-        .text-glow-blue {
-            color: #60a5fa;
-            text-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
-        }
-        .text-glow-green {
-            color: #34d399;
-            text-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
-        }
-        .text-glow-red {
-            color: #f87171;
-            text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
-        }
-        
-        .input-glow {
-            background: rgba(17, 24, 39, 0.8);
-            border: 2px solid rgba(251, 191, 36, 0.3);
-            color: white; transition: all 0.3s ease;
-        }
-        .input-glow:focus {
-            outline: none; border-color: #fbbf24;
-            box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
-            background: rgba(17, 24, 39, 0.95);
-        }
-        
-        .card-zone {
-            background: rgba(0, 0, 0, 0.4);
-            border: 2px solid rgba(251, 191, 36, 0.2);
-            box-shadow: inset 0 0 30px rgba(124, 58, 237, 0.2);
-            position: relative; overflow: hidden;
-        }
-        
-        .score-display {
-            font-size: 3rem; font-weight: 900;
-            background: linear-gradient(135deg, #fbbf24, #f59e0b, #fbbf24);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            filter: drop-shadow(0 0 20px #fbbf24);
-            animation: score-glow 2s ease-in-out infinite;
-        }
-        @keyframes score-glow {
-            0%, 100% { filter: drop-shadow(0 0 20px #fbbf24); }
-            50% { filter: drop-shadow(0 0 40px #fbbf24) drop-shadow(0 0 60px #f59e0b); }
-        }
-        
-        .qr-container {
-            background: white; padding: 20px; border-radius: 20px;
-            box-shadow: 0 0 40px rgba(251, 191, 36, 0.8), 0 0 80px rgba(124, 58, 237, 0.6);
-            animation: qr-pulse 2s ease-in-out infinite;
-        }
-        @keyframes qr-pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        
-        .lightning-bolt {
-            display: inline-block;
-            animation: bolt-flash 2s ease-in-out infinite;
-        }
-        @keyframes bolt-flash {
-            0%, 50%, 100% { opacity: 1; color: #fbbf24; }
-            25%, 75% { opacity: 0.3; color: #f59e0b; }
-        }
-    </style>
-</head>
-<body>
-    <div class="lightning-bg"></div>
-
-    <!-- Configuration -->
-    <div id="configSection" class="relative z-10 max-w-2xl mx-auto p-4 mt-10">
-        <div class="glow-container rounded-3xl p-8">
-            <h1 class="text-5xl font-black text-center mb-3 text-glow-yellow">
-                <span class="lightning-bolt">⚡</span> LIGHTNING BLACKJACK
-            </h1>
-            <p class="text-center text-glow-purple text-lg mb-8">Configuration requise</p>
-            
-            <div class="space-y-5">
-                <div>
-                    <label class="block text-sm font-bold mb-2 text-glow-blue">URL LNBITS</label>
-                    <input type="text" id="lnbitsUrl" placeholder="https://legend.lnbits.com" 
-                        class="w-full px-4 py-3 rounded-xl input-glow text-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold mb-2 text-glow-blue">CLÉ API ADMIN</label>
-                    <input type="password" id="adminKey" placeholder="Votre clé admin LNbits" 
-                        class="w-full px-4 py-3 rounded-xl input-glow text-lg">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold mb-2 text-glow-blue">CLÉ API INVOICE</label>
-                    <input type="password" id="invoiceKey" placeholder="Votre clé invoice LNbits" 
-                        class="w-full px-4 py-3 rounded-xl input-glow text-lg">
-                </div>
-                <button onclick="saveConfig()" class="w-full btn-glow btn-primary py-4 rounded-xl text-lg">
-                    <span class="lightning-bolt">⚡</span> ACTIVER LE RÉSEAU LIGHTNING
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Paiement -->
-    <div id="paymentSection" class="hidden relative z-10 max-w-3xl mx-auto p-4 mt-10">
-        <div class="glow-container rounded-3xl p-8">
-            <h2 class="text-4xl font-black text-center mb-3 text-glow-yellow">💰 ACHETER DES JETONS</h2>
-            <p class="text-center text-glow-purple text-lg mb-8">Rechargez votre compte en Satoshis</p>
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div class="glow-container rounded-2xl p-6 cursor-pointer hover:scale-105 transition-transform text-center" onclick="buyChips(2100)">
-                    <div class="text-3xl font-black text-glow-yellow">2,100</div>
-                    <div class="text-glow-purple">sats</div>
-                </div>
-                <div class="glow-container rounded-2xl p-6 cursor-pointer hover:scale-105 transition-transform text-center" onclick="buyChips(5000)">
-                    <div class="text-3xl font-black text-glow-yellow">5,000</div>
-                    <div class="text-glow-purple">sats</div>
-                </div>
-                <div class="glow-container rounded-2xl p-6 cursor-pointer hover:scale-105 transition-transform text-center" onclick="buyChips(10000)">
-                    <div class="text-3xl font-black text-glow-yellow">10,000</div>
-                    <div class="text-glow-purple">sats</div>
-                </div>
-                <div class="glow-container rounded-2xl p-6 cursor-pointer hover:scale-105 transition-transform text-center" onclick="buyChips(21000)">
-                    <div class="text-3xl font-black text-glow-yellow">21,000</div>
-                    <div class="text-glow-purple">sats</div>
-                </div>
-            </div>
-
-            <div id="invoiceDisplay" class="hidden">
-                <div class="glow-container rounded-2xl p-6 mb-4">
-                    <h3 class="text-2xl font-bold mb-4 text-center text-glow-yellow">SCANNEZ POUR PAYER</h3>
-                    <div id="qrCode" class="flex justify-center mb-4 qr-container mx-auto w-fit"></div>
-                    <div class="bg-gray-900 p-3 rounded-xl break-all text-sm font-mono text-gray-300" id="invoiceText"></div>
-                    <button onclick="copyInvoice()" class="w-full mt-4 btn-glow btn-action py-3 rounded-xl">
-                        📋 COPIER LA FACTURE
-                    </button>
-                </div>
-                <div class="text-center">
-                    <div class="animate-pulse text-glow-yellow text-xl mb-2">⏳ EN ATTENTE DU PAIEMENT...</div>
-                    <button onclick="cancelPayment()" class="text-gray-400 hover:text-glow-yellow transition">Annuler</button>
-                </div>
-            </div>
-
-            <div class="text-center">
-                <button onclick="showGame()" class="text-glow-purple hover:text-glow-yellow transition underline">
-                    J'ai déjà des jetons → JOUER
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Jeu -->
-    <div id="gameSection" class="hidden relative z-10 max-w-6xl mx-auto p-4 mt-10 mb-10">
-        <div class="glow-container rounded-3xl p-6 mb-6">
-            <div class="flex justify-between items-center flex-wrap gap-4">
-                <div>
-                    <h1 class="text-4xl font-black text-glow-yellow">
-                        <span class="lightning-bolt">⚡</span> LIGHTNING BLACKJACK
-                    </h1>
-                    <p class="text-glow-purple">Blackjack avec des Satoshis réels</p>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm text-glow-blue">VOTRE SOLDE</div>
-                    <div class="score-display" id="balance">0</div>
-                    <div class="text-sm text-glow-blue">SATOSHIS</div>
-                    <button onclick="showPayment()" class="mt-2 btn-glow btn-primary px-4 py-2 rounded-xl text-sm">
-                        + ACHETER
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="glow-container rounded-3xl p-8 mb-6">
-            <!-- Croupier -->
-            <div class="mb-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-glow-purple">🎩 CROUPIER</h2>
-                    <div class="score-display text-3xl" id="dealerScore"></div>
-                </div>
-                <div class="flex flex-wrap justify-center min-h-[130px] card-zone rounded-2xl p-4" id="dealerCards"></div>
-            </div>
-
-            <!-- Joueur -->
-            <div class="mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-glow-blue">🎮 VOUS</h2>
-                    <div class="score-display text-3xl" id="playerScore"></div>
-                </div>
-                <div class="flex flex-wrap justify-center min-h-[130px] card-zone rounded-2xl p-4" id="playerCards"></div>
-            </div>
-
-            <!-- Messages -->
-            <div id="messageArea" class="text-center mb-6 min-h-[80px]">
-                <div id="gameMessage" class="text-3xl font-black mb-2"></div>
-                <div id="gameSubmessage" class="text-xl text-glow-purple"></div>
-            </div>
-
-            <!-- Zone de mise -->
-            <div id="bettingArea" class="mb-6">
-                <h3 class="text-center text-2xl font-bold mb-4 text-glow-yellow">PLACEZ VOTRE MISE</h3>
-                <div class="flex justify-center gap-3 flex-wrap mb-4">
-                    <div class="chip" style="background: linear-gradient(135deg, #dc2626, #991b1b);" onclick="selectBet(100)">
-                        <span class="text-white">100</span>
-                    </div>
-                    <div class="chip" style="background: linear-gradient(135deg, #2563eb, #1e40af);" onclick="selectBet(500)">
-                        <span class="text-white">500</span>
-                    </div>
-                    <div class="chip" style="background: linear-gradient(135deg, #059669, #047857);" onclick="selectBet(1000)">
-                        <span class="text-white">1K</span>
-                    </div>
-                    <div class="chip" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);" onclick="selectBet(2100)">
-                        <span class="text-white">2.1K</span>
-                    </div>
-                    <div class="chip" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);" onclick="selectBet(5000)">
-                        <span class="text-gray-900">5K</span>
-                    </div>
-                </div>
-                <div class="text-center mb-4">
-                    <div class="text-glow-blue mb-2">MISE ACTUELLE</div>
-                    <div class="score-display text-4xl" id="currentBet">0</div>
-                    <div class="text-glow-blue">SATOSHIS</div>
-                </div>
-                <div class="flex justify-center gap-4">
-                    <button onclick="clearBet()" class="btn-glow btn-danger px-6 py-3 rounded-xl font-semibold">
-                        EFFACER
-                    </button>
-                    <button onclick="startGame()" class="btn-glow btn-success px-8 py-3 rounded-xl font-semibold">
-                        <span class="lightning-bolt">⚡</span> DISTRIBUER
-                    </button>
-                </div>
-            </div>
-
-            <!-- Boutons de jeu -->
-            <div id="gameButtons" class="hidden flex justify-center gap-4 flex-wrap">
-                <button onclick="hit()" class="btn-glow btn-action px-8 py-3 rounded-xl font-semibold">
-                    🃏 CARTE (HIT)
-                </button>
-                <button onclick="stand()" class="btn-glow btn-primary px-8 py-3 rounded-xl font-semibold">
-                    ✋ RESTER (STAND)
-                </button>
-                <button id="doubleBtn" onclick="doubleDown()" class="btn-glow btn-secondary px-8 py-3 rounded-xl font-semibold">
-                    💰 DOUBLER
-                </button>
-            </div>
-
-            <!-- Nouvelle partie -->
-            <div id="newGameButton" class="hidden text-center">
-                <button onclick="newGame()" class="btn-glow btn-success px-8 py-3 rounded-xl font-semibold">
-                    <span class="lightning-bolt">⚡</span> NOUVELLE PARTIE
-                </button>
-            </div>
-        </div>
-
-        <!-- Règles -->
-        <div class="glow-container rounded-3xl p-6 mb-6">
-            <h3 class="text-2xl font-bold mb-4 text-glow-yellow">📖 RÈGLES DU BLACKJACK</h3>
-            <ul class="space-y-2 text-glow-purple">
-                <li>🎯 Atteignez 21 ou approchez-vous sans dépasser</li>
-                <li>🃏 Cartes 2-10 = valeur, Figures = 10, As = 1 ou 11</li>
-                <li>⚡ Blackjack (As + Figure) paie 3:2 (1.5x votre mise)</li>
-                <li>✅ Victoire normale paie 2:1 (vous gagnez votre mise)</li>
-                <li>🤝 Égalité (push) : vous récupérez votre mise</li>
-                <li>🎲 Le croupier tire jusqu'à 17 minimum</li>
-                <li>💰 Doublez votre mise après les 2 premières cartes</li>
-            </ul>
-        </div>
-
-        <!-- Retrait -->
-        <div class="glow-container rounded-3xl p-6">
-            <h3 class="text-2xl font-bold mb-4 text-glow-yellow">💸 RETIRER VOS GAINS</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <div>
-                    <label class="block text-sm mb-2 text-glow-blue">MONTANT (sats)</label>
-                    <input type="number" id="withdrawAmount" placeholder="1000" 
+<div class="md:col-span-2">
+                    <label class="block text-sm mb-2 text-glow-blue">ADRESSE LIGHTNING (lnurl ou bolt11)</label>
+                    <input type="text" id="withdrawAddress" placeholder="lnurl1... ou lightning:..." 
                         class="w-full px-4 py-2 rounded-xl input-glow">
                 </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm mb-2 text-glow-blue">FACTURE LIGHTNING</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="withdrawInvoice" placeholder="lnbc..." 
-                            class="flex-1 px-4 py-2 rounded-xl input-glow">
-                        <button onclick="withdraw()" class="btn-glow btn-primary px-6 py-2 rounded-xl">
-                            RETIRER
-                        </button>
-                    </div>
+                <div class="md:col-span-3">
+                    <button onclick="withdraw()" class="w-full btn-glow btn-success py-3 rounded-xl font-semibold">
+                        RETIRER MES SATOSHIS
+                    </button>
                 </div>
             </div>
-            <p class="text-xs text-gray-500 mt-2">⚠️ La facture doit correspondre au montant exact</p>
         </div>
     </div>
 
-    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode.js@1.0.0/lib/qrcode.min.js"></script>
     <script>
-        // Configuration
+        // === CONFIGURATION & ÉTAT GLOBAL ===
         let config = {
-            lnbitsUrl: localStorage.getItem('lnbitsUrl') || '',
-            adminKey: localStorage.getItem('adminKey') || '',
-            invoiceKey: localStorage.getItem('invoiceKey') || ''
+            lnbitsUrl: '',
+            adminKey: '',
+            invoiceKey: ''
         };
-
-        // État du jeu
         let gameState = {
-            balance: parseInt(localStorage.getItem('balance')) || 0,
+            balance: 0,
             currentBet: 0,
-            deck: [],
+            selectedChip: 0,
             playerCards: [],
             dealerCards: [],
             gameActive: false,
-            dealerTurn: false
+            canDouble: true,
+            paymentInterval: null
         };
 
-        let paymentCheckInterval = null;
-        let currentPaymentHash = null;
+        const suits = ['♥', '♦', '♣', '♠'];
+        const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const values = { '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':10, 'Q':10, 'K':10, 'A':11 };
 
-        const suits = ['♠', '♥', '♦', '♣'];
-        const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-
-        // Initialisation
-        window.onload = function() {
-            if (config.lnbitsUrl && config.adminKey && config.invoiceKey) {
-                document.getElementById('configSection').classList.add('hidden');
-                document.getElementById('paymentSection').classList.remove('hidden');
-                updateBalance();
-            }
-        };
-
+        // === SAUVEGARDE CONFIG ===
         function saveConfig() {
             const url = document.getElementById('lnbitsUrl').value.trim();
             const admin = document.getElementById('adminKey').value.trim();
             const invoice = document.getElementById('invoiceKey').value.trim();
 
             if (!url || !admin || !invoice) {
-                alert('⚠️ Veuillez remplir tous les champs');
+                alert('⚠️ Tous les champs sont requis !');
                 return;
             }
 
-            config.lnbitsUrl = url;
-            config.adminKey = admin;
-            config.invoiceKey = invoice;
-
-            localStorage.setItem('lnbitsUrl', url);
-            localStorage.setItem('adminKey', admin);
-            localStorage.setItem('invoiceKey', invoice);
-
+            config = { lnbitsUrl: url.replace(/\/$/, ''), adminKey: admin, invoiceKey: invoice };
+            localStorage.setItem('lbjConfig', JSON.stringify(config));
             document.getElementById('configSection').classList.add('hidden');
             document.getElementById('paymentSection').classList.remove('hidden');
+            loadBalance();
         }
 
-        async function buyChips(amount) {
+        // === CHARGEMENT CONFIG ===
+        window.onload = () => {
+            const saved = localStorage.getItem('lbjConfig');
+            if (saved) {
+                config = JSON.parse(saved);
+                document.getElementById('configSection').classList.add('hidden');
+                document.getElementById('paymentSection').classList.remove('hidden');
+                loadBalance();
+            }
+        };
+
+        // === CHARGER LE SOLDE ===
+        async function loadBalance() {
             try {
-                const response = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/wallet`, {
+                    headers: { 'X-Api-Key': config.invoiceKey }
+                });
+                const data = await res.json();
+                gameState.balance = data.balance / 1000; // msats → sats
+                document.getElementById('balance').textContent = formatSats(gameState.balance);
+            } catch (e) {
+                console.error(e);
+                alert('Erreur de connexion LNbits');
+            }
+        }
+
+        // === ACHAT DE JETONS (CORRIGÉ) ===
+        async function buyChips(amount) {
+            if (!config.lnbitsUrl) return alert('Config requise');
+
+            try {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
                     method: 'POST',
                     headers: {
                         'X-Api-Key': config.invoiceKey,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        out: false,
                         amount: amount,
-                        memo: `Blackjack - ${amount} jetons`,
-                        unit: 'sat'
+                        unit: 'sat',
+                        memo: `Achat ${amount} sats - Lightning Blackjack`,
+                        out: false
                     })
                 });
+                const payment = await res.json();
 
-                const data = await response.json();
-                
-                if (data.payment_request) {
-                    currentPaymentHash = data.payment_hash;
-                    displayInvoice(data.payment_request, amount);
-                    startPaymentCheck(data.payment_hash, amount);
-                } else {
-                    alert('❌ Erreur lors de la création de la facture');
-                }
-            } catch (error) {
-                console.error('Erreur:', error);
-                alert('❌ Erreur de connexion à LNbits. Vérifiez votre configuration.');
-            }
-        }
+                document.getElementById('invoiceDisplay').classList.remove('hidden');
+                document.getElementById('invoiceText').textContent = payment.payment_request;
 
-        function displayInvoice(invoice, amount) {
-            document.getElementById('invoiceDisplay').classList.remove('hidden');
-            document.getElementById('invoiceText').textContent = invoice;
-            
-            document.getElementById('qrCode').innerHTML = '';
-            new QRCode(document.getElementById('qrCode'), {
-                text: invoice.toUpperCase(),
-                width: 256,
-                height: 256
-            });
-        }
+                // Génération QR Code
+                document.getElementById('qrCode').innerHTML = '';
+                new QRCode(document.getElementById('qrCode'), {
+                    text: payment.payment_request,
+                    width: 200,
+                    height: 200,
+                    colorDark: "#0a0a0f",
+                    colorLight: "#ffffff"
+                });
 
-        function startPaymentCheck(paymentHash, amount) {
-            paymentCheckInterval = setInterval(async () => {
-                try {
-                    const response = await fetch(`${config.lnbitsUrl}/api/v1/payments/${paymentHash}`, {
-                        headers: {
-                            'X-Api-Key': config.invoiceKey
+                // Vérification paiement
+                gameState.paymentInterval = setInterval(async () => {
+                    try {
+                        const check = await fetch(`${config.lnbitsUrl}/api/v1/payments/${payment.payment_hash}`, {
+                            headers: { 'X-Api-Key': config.invoiceKey }
+                        });
+                        const status = await check.json();
+                        if (status.paid) {
+                            clearInterval(gameState.paymentInterval);
+                            gameState.balance += amount;
+                            document.getElementById('balance').textContent = formatSats(gameState.balance);
+                            document.getElementById('invoiceDisplay').classList.add('hidden');
+                            alert(`Paiement reçu ! +${amount} sats`);
+                            showGame();
                         }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.paid) {
-                        clearInterval(paymentCheckInterval);
-                        gameState.balance += amount;
-                        localStorage.setItem('balance', gameState.balance);
-                        updateBalance();
-                        alert(`✅ Paiement reçu ! ${amount} sats ajoutés à votre solde.`);
-                        cancelPayment();
-                        showGame();
-                    }
-                } catch (error) {
-                    console.error('Erreur vérification paiement:', error);
-                }
-            }, 2000);
+                    } catch (e) {}
+                }, 2000);
+
+            } catch (e) {
+                console.error(e);
+                alert('Erreur création facture');
+            }
         }
 
         function cancelPayment() {
-            if (paymentCheckInterval) {
-                clearInterval(paymentCheckInterval);
-            }
+            if (gameState.paymentInterval) clearInterval(gameState.paymentInterval);
             document.getElementById('invoiceDisplay').classList.add('hidden');
-            currentPaymentHash = null;
         }
 
         function copyInvoice() {
-            const invoice = document.getElementById('invoiceText').textContent;
-            navigator.clipboard.writeText(invoice);
-            alert('📋 Facture copiée !');
+            const text = document.getElementById('invoiceText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Facture copiée !');
+            });
         }
 
+        // === AFFICHAGE JEU ===
         function showPayment() {
-            document.getElementById('gameSection').classList.add('hidden');
             document.getElementById('paymentSection').classList.remove('hidden');
+            document.getElementById('gameSection').classList.add('hidden');
         }
 
         function showGame() {
             document.getElementById('paymentSection').classList.add('hidden');
-            document.getElementById('configSection').classList.add('hidden');
             document.getElementById('gameSection').classList.remove('hidden');
-            updateBalance();
+            loadBalance();
         }
 
-        function updateBalance() {
-            document.getElementById('balance').textContent = gameState.balance.toLocaleString();
-        }
-
-        // LOGIQUE DU JEU
-        function createDeck() {
-            const deck = [];
-            for (let suit of suits) {
-                for (let value of values) {
-                    deck.push({ suit, value });
-                }
-            }
-            return shuffleDeck(deck);
-        }
-
-        function shuffleDeck(deck) {
-            for (let i = deck.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [deck[i], deck[j]] = [deck[j], deck[i]];
-            }
-            return deck;
-        }
-
-        function calculateScore(cards) {
-            let total = 0;
-            let aces = 0;
-
-            for (let card of cards) {
-                if (card.value === 'A') {
-                    aces++;
-                    total += 11;
-                } else if (['J', 'Q', 'K'].includes(card.value)) {
-                    total += 10;
-                } else {
-                    total += parseInt(card.value);
-                }
-            }
-
-            while (total > 21 && aces > 0) {
-                total -= 10;
-                aces--;
-            }
-
-            return total;
-        }
-
-        function isBlackjack(cards) {
-            return cards.length === 2 && calculateScore(cards) === 21;
-        }
-
-        function displayCard(card, isHidden = false) {
-            const isRed = card.suit === '♥' || card.suit === '♦';
-            const colorClass = isRed ? 'card-red' : 'card-black';
-            
-            if (isHidden) {
-                return `<div class="card card-back">🂠</div>`;
-            }
-            
-            return `
-                <div class="card ${colorClass}">
-                    <span class="card-suit">${card.suit}</span>
-                    <span>${card.value}</span>
-                </div>
-            `;
-        }
-
-        function displayCards() {
-            const dealerCardsEl = document.getElementById('dealerCards');
-            const playerCardsEl = document.getElementById('playerCards');
-
-            dealerCardsEl.innerHTML = gameState.dealerCards.map((card, index) => {
-                if (index === 0 && gameState.gameActive && !gameState.dealerTurn) {
-                    return displayCard(card, true);
-                }
-                return displayCard(card);
-            }).join('');
-
-            playerCardsEl.innerHTML = gameState.playerCards.map(card => displayCard(card)).join('');
-
-            if (gameState.dealerTurn || !gameState.gameActive) {
-                document.getElementById('dealerScore').textContent = calculateScore(gameState.dealerCards);
-            } else {
-                document.getElementById('dealerScore').textContent = '?';
-            }
-            document.getElementById('playerScore').textContent = calculateScore(gameState.playerCards);
-        }
-
+        // === GESTION DES MISES ===
         function selectBet(amount) {
             if (gameState.gameActive) return;
-            
-            const chips = document.querySelectorAll('.chip');
-            chips.forEach(chip => chip.classList.remove('chip-selected'));
-            
-            gameState.currentBet += amount;
-            if (gameState.currentBet > gameState.balance) {
-                gameState.currentBet = gameState.balance;
-            }
-            
-            document.getElementById('currentBet').textContent = gameState.currentBet.toLocaleString();
+            gameState.selectedChip = amount;
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip-selected'));
             event.target.classList.add('chip-selected');
+            gameState.currentBet = amount;
+            document.getElementById('currentBet').textContent = formatSats(amount);
         }
 
         function clearBet() {
-            if (gameState.gameActive) return;
             gameState.currentBet = 0;
+            gameState.selectedChip = 0;
             document.getElementById('currentBet').textContent = '0';
-            document.querySelectorAll('.chip').forEach(chip => chip.classList.remove('chip-selected'));
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('chip-selected'));
         }
 
+        // === DÉMARRER PARTIE ===
         function startGame() {
-            if (gameState.currentBet === 0) {
-                alert('⚠️ Veuillez placer une mise');
+            if (gameState.currentBet === 0 || gameState.currentBet > gameState.balance) {
+                alert('Mise invalide ou solde insuffisant');
                 return;
             }
+            if (gameState.gameActive) return;
 
-            if (gameState.currentBet > gameState.balance) {
-                alert('❌ Solde insuffisant');
-                return;
-            }
-
-            gameState.balance -= gameState.currentBet;
-            updateBalance();
-            localStorage.setItem('balance', gameState.balance);
-
-            gameState.deck = createDeck();
-            gameState.playerCards = [gameState.deck.pop(), gameState.deck.pop()];
-            gameState.dealerCards = [gameState.deck.pop(), gameState.deck.pop()];
             gameState.gameActive = true;
-            gameState.dealerTurn = false;
-
-            displayCards();
+            gameState.playerCards = [];
+            gameState.dealerCards = [];
+            gameState.canDouble = true;
 
             document.getElementById('bettingArea').classList.add('hidden');
             document.getElementById('gameButtons').classList.remove('hidden');
+            document.getElementById('newGameButton').classList.add('hidden');
             document.getElementById('gameMessage').textContent = '';
             document.getElementById('gameSubmessage').textContent = '';
 
-            if (isBlackjack(gameState.playerCards)) {
-                if (isBlackjack(gameState.dealerCards)) {
-                    endGame('push', 'ÉGALITÉ !', 'Deux Blackjacks 🎯');
-                } else {
-                    endGame('blackjack', 'BLACKJACK! 🎉', 'Vous gagnez 1.5x votre mise !');
-                }
-            } else if (isBlackjack(gameState.dealerCards)) {
-                gameState.dealerTurn = true;
-                displayCards();
-                endGame('lose', 'BLACKJACK CROUPIER 😔', 'Le croupier a un Blackjack');
+            dealCard('player'); dealCard('dealer');
+            dealCard('player'); dealCard('dealer', true); // dos visible
+
+            updateScores();
+            if (calculateScore(gameState.playerCards) === 21) {
+                setTimeout(stand, 800);
             }
         }
 
+        // === TIRER UNE CARTE ===
+        function dealCard(to, hidden = false) {
+            const rank = ranks[Math.floor(Math.random() * ranks.length)];
+            const suit = suits[Math.floor(Math.random() * suits.length)];
+            const card = { rank, suit, value: values[rank], hidden };
+
+            if (to === 'player') gameState.playerCards.push(card);
+            else gameState.dealerCards.push(card);
+
+            const cardEl = document.createElement('div');
+            cardEl.className = `card ${hidden ? 'card-back' : (suit === '♥' || suit === '♦' ? 'card-red' : 'card-black')}`;
+            if (!hidden) {
+                cardEl.innerHTML = `
+                    <div class="card-suit">${suit}</div>
+                    <div>${rank}</div>
+                    <div class="card-suit rotate-180">${suit}</div>
+                `;
+            } else {
+                cardEl.innerHTML = `<div>⚡</div>`;
+            }
+            document.getElementById(to + 'Cards').appendChild(cardEl);
+        }
+
+        // === CALCUL SCORE ===
+        function calculateScore(cards) {
+            let score = 0, aces = 0;
+            cards.forEach(c => {
+                if (!c.hidden) {
+                    score += c.value;
+                    if (c.rank === 'A') aces++;
+                }
+            });
+            while (score > 21 && aces > 0) {
+                score -= 10; aces--;
+            }
+            return score;
+        }
+
+        function updateScores() {
+            document.getElementById('playerScore').textContent = calculateScore(gameState.playerCards);
+            const dealerScore = calculateScore(gameState.dealerCards);
+            document.getElementById('dealerScore').textContent = dealerScore > 0 ? dealerScore : '?';
+        }
+
+        // === HIT ===
         function hit() {
-            if (!gameState.gameActive) return;
-
-            gameState.playerCards.push(gameState.deck.pop());
-            displayCards();
-
+            if (!gameState.gameActive || !gameState.canDouble) return;
+            dealCard('player');
+            updateScores();
+            gameState.canDouble = false;
             document.getElementById('doubleBtn').disabled = true;
-            document.getElementById('doubleBtn').classList.add('opacity-50', 'cursor-not-allowed');
 
-            const score = calculateScore(gameState.playerCards);
-            if (score > 21) {
-                endGame('bust', 'BUST! 💥', 'Vous avez dépassé 21');
-            } else if (score === 21) {
-                stand();
+            if (calculateScore(gameState.playerCards) > 21) {
+                endGame('bust');
             }
         }
 
+        // === STAND ===
         function stand() {
-            if (!gameState.gameActive) return;
-
-            gameState.dealerTurn = true;
-            displayCards();
-
-            setTimeout(() => {
-                dealerPlay();
-            }, 500);
-        }
-
-        function doubleDown() {
-            if (!gameState.gameActive || gameState.playerCards.length !== 2) return;
-
-            if (gameState.currentBet > gameState.balance) {
-                alert('❌ Solde insuffisant pour doubler');
-                return;
-            }
-
-            gameState.balance -= gameState.currentBet;
-            gameState.currentBet *= 2;
-            updateBalance();
-            localStorage.setItem('balance', gameState.balance);
-
-            gameState.playerCards.push(gameState.deck.pop());
-            displayCards();
-
-            const score = calculateScore(gameState.playerCards);
-            if (score > 21) {
-                endGame('bust', 'BUST! 💥', 'Vous avez dépassé 21');
-            } else {
-                stand();
-            }
-        }
-
-        function dealerPlay() {
-            let dealerScore = calculateScore(gameState.dealerCards);
-
-            if (dealerScore < 17) {
-                gameState.dealerCards.push(gameState.deck.pop());
-                displayCards();
-                setTimeout(dealerPlay, 800);
-            } else {
-                const playerScore = calculateScore(gameState.playerCards);
-                
-                if (dealerScore > 21) {
-                    endGame('win', 'VICTOIRE! 🎉', 'Le croupier a dépassé 21');
-                } else if (dealerScore > playerScore) {
-                    endGame('lose', 'DÉFAITE 😔', 'Le croupier gagne');
-                } else if (dealerScore < playerScore) {
-                    endGame('win', 'VICTOIRE! 🎉', 'Vous battez le croupier');
-                } else {
-                    endGame('push', 'ÉGALITÉ! 🤝', 'Même score');
-                }
-            }
-        }
-
-        function endGame(result, message, submessage) {
             gameState.gameActive = false;
-            gameState.dealerTurn = true;
-            displayCards();
+            document.getElementById('gameButtons').classList.add('hidden');
 
-            let winAmount = 0;
-            let messageClass = '';
-
-            switch(result) {
-                case 'blackjack':
-                    winAmount = Math.floor(gameState.currentBet * 2.5);
-                    submessage = `Vous gagnez ${winAmount} sats!`;
-                    messageClass = 'text-glow-green';
-                    break;
-                case 'win':
-                    winAmount = gameState.currentBet * 2;
-                    submessage = `Vous gagnez ${winAmount} sats!`;
-                    messageClass = 'text-glow-green';
-                    break;
-                case 'push':
-                    winAmount = gameState.currentBet;
-                    submessage = `Vous récupérez ${winAmount} sats`;
-                    messageClass = 'text-glow-yellow';
-                    break;
-                case 'lose':
-                case 'bust':
-                    winAmount = 0;
-                    submessage = `Vous perdez ${gameState.currentBet} sats`;
-                    messageClass = 'text-glow-red';
-                    break;
+            // Révéler carte cachée
+            const hiddenCard = document.querySelector('#dealerCards .card-back');
+            if (hiddenCard) {
+                const card = gameState.dealerCards.find(c => c.hidden);
+                hiddenCard.classList.remove('card-back');
+                hiddenCard.classList.add(card.suit === '♥' || card.suit === '♦' ? 'card-red' : 'card-black');
+                hiddenCard.innerHTML = `
+                    <div class="card-suit">${card.suit}</div>
+                    <div>${card.rank}</div>
+                    <div class="card-suit rotate-180">${card.suit}</div>
+                `;
+                card.hidden = false;
             }
 
-            if (winAmount > 0) {
-                gameState.balance += winAmount;
-                updateBalance();
-                localStorage.setItem('balance', gameState.balance);
+            updateScores();
+            dealerPlay();
+        }
+
+        // === CROUPIER JOUE ===
+        function dealerPlay() {
+            let score = calculateScore(gameState.dealerCards);
+            const play = () => {
+                if (score < 17) {
+                    setTimeout(() => {
+                        dealCard('dealer');
+                        updateScores();
+                        score = calculateScore(gameState.dealerCards);
+                        if (score <= 21) play();
+                        else endGame();
+                    }, 800);
+                } else {
+                    endGame();
+                }
+            };
+            play();
+        }
+
+        // === DOUBLER ===
+        function doubleDown() {
+            if (!gameState.canDouble || gameState.currentBet * 2 > gameState.balance) return;
+            gameState.currentBet *= 2;
+            document.getElementById('currentBet').textContent = formatSats(gameState.currentBet);
+            gameState.canDouble = false;
+            document.getElementById('doubleBtn').disabled = true;
+            hit();
+            if (calculateScore(gameState.playerCards) <= 21) stand();
+        }
+
+        // === FIN DE PARTIE ===
+        function endGame(reason = '') {
+            const playerScore = calculateScore(gameState.playerCards);
+            const dealerScore = calculateScore(gameState.dealerCards);
+            let message = '', sub = '', win = 0;
+
+            if (reason === 'bust' || playerScore > 21) {
+                message = 'DÉPASSÉ !'; sub = 'Vous avez perdu.';
+            } else if (dealerScore > 21) {
+                message = 'CROUPIER DÉPASSÉ !'; sub = 'Vous gagnez !';
+                win = gameState.currentBet * (playerScore === 21 && gameState.playerCards.length === 2 ? 1.5 : 1);
+            } else if (playerScore > dealerScore) {
+                message = 'VICTOIRE !'; sub = 'Félicitations !';
+                win = gameState.currentBet * (playerScore === 21 && gameState.playerCards.length === 2 ? 1.5 : 1);
+            } else if (playerScore < dealerScore) {
+                message = 'DÉFAITE'; sub = 'Le croupier gagne.';
+            } else {
+                message = 'ÉGALITÉ'; sub = 'Mise remboursée.';
+                win = gameState.currentBet;
             }
+
+            gameState.balance += win;
+            gameState.balance -= gameState.currentBet * (win === 0 ? 1 : 0);
 
             document.getElementById('gameMessage').textContent = message;
-            document.getElementById('gameMessage').className = `text-3xl font-black mb-2 ${messageClass}`;
-            document.getElementById('gameSubmessage').textContent = submessage;
-            document.getElementById('gameButtons').classList.add('hidden');
+            document.getElementById('gameMessage').className = win > 0 ? 'text-glow-green' : 'text-glow-red';
+            document.getElementById('gameSubmessage').textContent = sub;
+            document.getElementById('balance').textContent = formatSats(gameState.balance);
             document.getElementById('newGameButton').classList.remove('hidden');
+
+            // Nettoyage
+            setTimeout(() => {
+                document.getElementById('dealerCards').innerHTML = '';
+                document.getElementById('playerCards').innerHTML = '';
+            }, 3000);
         }
 
+        // === NOUVELLE PARTIE ===
         function newGame() {
+            gameState.gameActive = false;
             gameState.currentBet = 0;
             gameState.playerCards = [];
             gameState.dealerCards = [];
-            gameState.gameActive = false;
-
-            document.getElementById('dealerCards').innerHTML = '';
-            document.getElementById('playerCards').innerHTML = '';
+            clearBet();
+            document.getElementById('bettingArea').classList.remove('hidden');
+            document.getElementById('gameButtons').classList.add('hidden');
+            document.getElementById('newGameButton').classList.add('hidden');
+            document.getElementById('doubleBtn').disabled = false;
             document.getElementById('dealerScore').textContent = '';
             document.getElementById('playerScore').textContent = '';
-            document.getElementById('gameMessage').textContent = '';
-            document.getElementById('gameSubmessage').textContent = '';
-            document.getElementById('currentBet').textContent = '0';
-
-            document.getElementById('newGameButton').classList.add('hidden');
-            document.getElementById('bettingArea').classList.remove('hidden');
-            document.getElementById('doubleBtn').disabled = false;
-            document.getElementById('doubleBtn').classList.remove('opacity-50', 'cursor-not-allowed');
         }
 
+        // === RETRAIT ===
         async function withdraw() {
             const amount = parseInt(document.getElementById('withdrawAmount').value);
-            const invoice = document.getElementById('withdrawInvoice').value.trim();
+            const address = document.getElementById('withdrawAddress').value.trim();
 
-            if (!amount || amount <= 0) {
-                alert('❌ Montant invalide');
+            if (!amount || amount > gameState.balance || amount < 100) {
+                alert('Montant invalide (min 100 sats)');
                 return;
             }
-
-            if (amount > gameState.balance) {
-                alert('❌ Solde insuffisant');
-                return;
-            }
-
-            if (!invoice) {
-                alert('⚠️ Veuillez fournir une facture Lightning');
+            if (!address) {
+                alert('Adresse requise');
                 return;
             }
 
             try {
-                const response = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
+                const res = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
                     method: 'POST',
                     headers: {
                         'X-Api-Key': config.adminKey,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        out: true,
-                        bolt11: invoice
+                        amount: amount,
+                        unit: 'sat',
+                        memo: `Retrait Lightning Blackjack`,
+                        bolt11: address.includes('lightning:') ? address.split(':')[1] : address,
+                        out: true
                     })
                 });
-
-                const data = await response.json();
-
+                const data = await res.json();
                 if (data.payment_hash) {
                     gameState.balance -= amount;
-                    updateBalance();
-                    localStorage.setItem('balance', gameState.balance);
-                    alert(`✅ Retrait de ${amount} sats effectué avec succès!`);
+                    document.getElementById('balance').textContent = formatSats(gameState.balance);
+                    alert(`Retrait envoyé ! ${amount} sats`);
                     document.getElementById('withdrawAmount').value = '';
-                    document.getElementById('withdrawInvoice').value = '';
+                    document.getElementById('withdrawAddress').value = '';
                 } else {
-                    alert('❌ Erreur lors du retrait: ' + (data.detail || 'Erreur inconnue'));
+                    alert('Erreur retrait');
                 }
-            } catch (error) {
-                console.error('Erreur:', error);
-                alert('❌ Erreur lors du retrait');
+            } catch (e) {
+                console.error(e);
+                alert('Erreur LNbits');
             }
         }
+
+        // === UTILITAIRES ===
+        function formatSats(n) {
+            return n.toLocaleString('fr-FR');
+        }
+
+        // Animation d'entrée des cartes
+        document.querySelectorAll('.card').forEach((c, i) => {
+            c.style.animationDelay = `${i * 0.1}s`;
+        });
     </script>
 </body>
 </html>
