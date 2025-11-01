@@ -74,7 +74,7 @@
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl text-glow">LIGHTNING BLACKJACK</h1>
                 <div class="text-right">
-                    <div class="text-sm text-purple-400">SOLDE</div>
+                    <div class="text-sm text-purple-400">SOLDE JEU</div>
                     <div class="text-3xl text-glow" id="balance">0</div>
                     <button onclick="showPayment()" class="btn btn-primary text-xs px-3 py-1 mt-2 mr-1">ACHETER</button>
                     <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1 mt-2 mr-1">VIDER</button>
@@ -161,16 +161,15 @@
             if (!config.lnbitsUrl || !config.adminKey || !config.invoiceKey) return alert('Tous les champs !');
             localStorage.setItem('lbj_config', JSON.stringify(config));
             hide('configSection');
-            loadBalanceAndShow();
+            showGameSection();
         }
 
         window.onload = () => {
             const saved = localStorage.getItem('lbj_config');
-            if (saved) { config = JSON.parse(saved); hide('configSection'); loadBalanceAndShow(); }
+            if (saved) { config = JSON.parse(saved); hide('configSection'); showGameSection(); }
         };
 
-        async function loadBalanceAndShow() {
-            await loadBalance();
+        function showGameSection() {
             if (game.balance < 2100) {
                 show('paymentSection');
                 hide('gameSection');
@@ -178,18 +177,10 @@
                 hide('paymentSection');
                 show('gameSection');
             }
+            $('#balance').textContent = game.balance.toLocaleString();
         }
 
-        async function loadBalance() {
-            try {
-                const res = await fetch(`${config.lnbitsUrl}/api/v1/wallet`, { headers: { 'X-Api-Key': config.invoiceKey } });
-                const data = await res.json();
-                game.balance = Math.floor(data.balance / 1000);
-                $('#balance').textContent = game.balance.toLocaleString();
-            } catch (e) { console.error(e); }
-        }
-
-        // === ACHAT 2100 SATS ===
+        // === ACHAT 2100 SATS → CRÉDITE LE JEU ===
         async function buyChips(amount) {
             try {
                 const res = await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
@@ -208,7 +199,9 @@
                     if (status.paid) {
                         clearInterval(interval);
                         hide('invoiceDisplay');
-                        loadBalanceAndShow();
+                        game.balance += amount; // CRÉDIT JEU
+                        localStorage.setItem('game_balance', game.balance);
+                        showGameSection();
                     }
                 }, 2000);
             } catch (e) { alert('Erreur paiement'); }
@@ -218,6 +211,10 @@
         function copyInvoice() { navigator.clipboard.writeText($('#invoiceText').textContent).then(() => alert('Copié !')); }
         function cancelPayment() { hide('invoiceDisplay'); }
 
+        // === CHARGER SOLDE DU JEU DEPUIS LOCALSTORAGE ===
+        const savedBalance = localStorage.getItem('game_balance');
+        if (savedBalance) game.balance = parseInt(savedBalance);
+
         // === JEU ===
         function setBet(amount) {
             if (game.playing) return;
@@ -226,7 +223,7 @@
             $('#currentBet').textContent = amount;
         }
 
-        async function deal() {
+        function deal() {
             if (game.bet < 210 || game.bet > game.balance) return alert('Mise invalide (min 210)');
             game.playing = true; game.player = []; game.dealer = [];
             hide('bettingArea'); show('actions');
@@ -292,7 +289,7 @@
             }
         }
 
-        async function endGame(msg = '', payout = null) {
+        function endGame(msg = '', payout = null) {
             const player = calcScore(game.player), dealer = calcScore(game.dealer);
             let result = '', win = payout !== null ? payout : 0;
 
@@ -309,21 +306,11 @@
             $('#message').style.color = win > game.bet ? '#10b981' : win === game.bet ? '#fbbf24' : '#ef4444';
             show('message');
 
-            const net = win - game.bet;
-            if (net < 0) {
-                await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
-                    method: 'POST',
-                    headers: { 'X-Api-Key': config.adminKey, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        out: true,
-                        amount: game.bet,
-                        lnurl: SUB_WALLET_LNURL,
-                        memo: 'Perte au Blackjack'
-                    })
-                });
-            }
+            // === MISE À JOUR SOLDE DU JEU ===
+            game.balance += win - game.bet;
+            localStorage.setItem('game_balance', game.balance);
+            $('#balance').textContent = game.balance.toLocaleString();
 
-            await loadBalance();
             show('newGameBtn');
             game.playing = false;
         }
@@ -353,9 +340,11 @@
                 });
                 const data = await res.json();
                 if (data.payment_hash) {
-                    loadBalance();
+                    game.balance = 0;
+                    localStorage.setItem('game_balance', 0);
+                    loadBalanceAndShow();
                     closeEmpty();
-                    alert(`POT VIDÉ ! ${game.balance} sats → casino`);
+                    alert(`POT VIDÉ !`);
                 }
             } catch (e) { alert('Erreur'); }
         }
@@ -364,8 +353,8 @@
         function openWithdraw() {
             if (game.balance < 210) return alert('Minimum 210 sats');
             $('#withdrawAmount').textContent = game.balance.toLocaleString();
-            const bolt11 = `lnbc${game.balance}n1p3...`; // LNbits génère le bolt11 via API
-            $('#withdrawLink').textContent = bolt11;
+            const lnurl = `lnurl1dp68gurn8ghj7emp6yuxxgenpduhjummnw3ezqun0wd68jtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhhx6tvv4u8qetjd9jkucm9xgcsmep3s3?amount=${game.balance}`;
+            $('#withdrawLink').textContent = lnurl;
             show('withdrawModal');
         }
 
