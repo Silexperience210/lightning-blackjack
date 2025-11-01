@@ -36,7 +36,6 @@
         .card.black { color: #1a1a1a; }
         .card-back { background: linear-gradient(135deg, #1e1b4b, #7c3aed); color: #fbbf24; }
         .hidden { display: none; }
-        #emptyModal { display: none; position: fixed; z-index: 100; inset: 0; background: rgba(0,0,0,0.9); }
         .modal { background: rgba(10,10,15,0.95); margin: 15% auto; padding: 2rem; border-radius: 1.5rem; width: 90%; max-width: 400px; box-shadow: 0 0 50px rgba(251,191,36,0.7); }
     </style>
 </head>
@@ -78,7 +77,8 @@
                     <div class="text-sm text-purple-400">SOLDE</div>
                     <div class="text-3xl text-glow" id="balance">0</div>
                     <button onclick="showPayment()" class="btn btn-primary text-xs px-3 py-1 mt-2 mr-1">ACHETER</button>
-                    <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1 mt-2">VIDER</button>
+                    <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1 mt-2 mr-1">VIDER</button>
+                    <button onclick="openWithdraw()" class="btn btn-success text-xs px-3 py-1 mt-2">RETIRER</button>
                 </div>
             </div>
 
@@ -95,8 +95,15 @@
             </div>
 
             <div id="bettingArea">
-                <h3 class="text-xl text-glow text-center mb-3">MISE FIXE : 2100 SATS</h3>
-                <button onclick="deal()" class="w-full btn btn-success text-xl py-3">JOUER 2100 SATS</button>
+                <h3 class="text-xl text-glow text-center mb-3">MISE (min 210 sats)</h3>
+                <div class="flex justify-center gap-2 mb-3">
+                    <button onclick="setBet(210)" class="w-14 h-14 rounded-full bg-red-600 text-white font-bold">210</button>
+                    <button onclick="setBet(500)" class="w-14 h-14 rounded-full bg-blue-600 text-white font-bold">500</button>
+                    <button onclick="setBet(1000)" class="w-14 h-14 rounded-full bg-green-600 text-white font-bold">1K</button>
+                    <button onclick="setBet(2100)" class="w-14 h-14 rounded-full bg-purple-600 text-white font-bold">2.1K</button>
+                </div>
+                <div class="text-2xl text-glow text-center mb-3" id="currentBet">0</div>
+                <button onclick="deal()" class="w-full btn btn-success text-xl py-3">JOUER</button>
             </div>
 
             <div id="actions" class="hidden flex justify-center gap-3 mt-4">
@@ -109,23 +116,34 @@
     </div>
 
     <!-- MODAL VIDER -->
-    <div id="emptyModal">
+    <div id="emptyModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
         <div class="modal text-center">
-            <h3 class="text-2xl text-glow mb-4">VIDER LE WALLET</h3>
-            <p class="mb-4">Envoi de <span id="emptyAmount" class="text-glow"></span> sats vers le casino</p>
-            <button onclick="emptyWallet()" class="w-full btn btn-danger">PLUMER LE CLIENT</button>
+            <h3 class="text-2xl text-glow mb-4">VIDER LE POT</h3>
+            <p class="mb-4">Envoi de <span id="emptyAmount" class="text-glow"></span> sats au casino</p>
+            <button onclick="emptyWallet()" class="w-full btn btn-danger">VIDER TOUT</button>
             <button onclick="closeEmpty()" class="mt-2 text-gray-400">Annuler</button>
+        </div>
+    </div>
+
+    <!-- MODAL RETRAIT -->
+    <div id="withdrawModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="modal text-center">
+            <h3 class="text-2xl text-glow mb-4">RETIRER LES GAINS</h3>
+            <p class="mb-4">Montant: <span id="withdrawAmount" class="text-glow"></span> sats</p>
+            <p class="text-xs break-all text-gray-400 mb-4" id="withdrawLink"></p>
+            <button onclick="copyWithdraw()" class="w-full btn btn-success mb-2">COPIER LNURL</button>
+            <button onclick="closeWithdraw()" class="text-gray-400">Fermer</button>
         </div>
     </div>
 
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <script>
-        // === SUB-WALLET LNURL ===
+        // === CONFIG CASINO ===
         const SUB_WALLET_LNURL = "lnurl1dp68gurn8ghj7ampd3kx2ar0veekzar0wd5xjtnrdakj7tnhv4kxctttdehhwm30d3h82unvwqhhx6tvv4u8qetjd9jkucm9xgcsmep3s3";
 
         let config = { lnbitsUrl: '', adminKey: '', invoiceKey: '' };
-        let game = { balance: 0, player: [], dealer: [], playing: false };
+        let game = { balance: 0, bet: 0, player: [], dealer: [], playing: false };
 
         const values = { 'A':11, 'K':10, 'Q':10, 'J':10, '10':10, '9':9, '8':8, '7':7, '6':6, '5':5, '4':4, '3':3, '2':2 };
         const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
@@ -151,15 +169,17 @@
             if (saved) { config = JSON.parse(saved); hide('configSection'); loadBalanceAndShow(); }
         };
 
-        // === CHARGER SOLDE & AFFICHER BONNE SECTION ===
         async function loadBalanceAndShow() {
             await loadBalance();
-            hide('paymentSection');
-            show('gameSection');
-            // Toujours afficher "ACHETER" dans le jeu
+            if (game.balance < 2100) {
+                show('paymentSection');
+                hide('gameSection');
+            } else {
+                hide('paymentSection');
+                show('gameSection');
+            }
         }
 
-        // === SOLDE ===
         async function loadBalance() {
             try {
                 const res = await fetch(`${config.lnbitsUrl}/api/v1/wallet`, { headers: { 'X-Api-Key': config.invoiceKey } });
@@ -199,13 +219,20 @@
         function cancelPayment() { hide('invoiceDisplay'); }
 
         // === JEU ===
+        function setBet(amount) {
+            if (game.playing) return;
+            if (amount > game.balance) return alert('Pas assez de sats !');
+            game.bet = amount;
+            $('#currentBet').textContent = amount;
+        }
+
         async function deal() {
-            if (game.balance < 2100) return alert('Pas assez de sats !');
+            if (game.bet < 210 || game.bet > game.balance) return alert('Mise invalide (min 210)');
             game.playing = true; game.player = []; game.dealer = [];
             hide('bettingArea'); show('actions');
             dealCard('dealer'); dealCard('player'); dealCard('dealer', true); dealCard('player');
             updateScores();
-            if (isBlackjack(game.player) && !isBlackjack(game.dealer)) endGame('BLACKJACK !', 3150);
+            if (isBlackjack(game.player) && !isBlackjack(game.dealer)) endGame('BLACKJACK !', game.bet * 2.5);
         }
 
         function isBlackjack(cards) { return cards.length === 2 && calcScore(cards) === 21; }
@@ -236,7 +263,7 @@
         function hit() {
             dealCard('player');
             updateScores();
-            if (calcScore(game.player) > 21) endGame('BUST ! Vous perdez.', 0);
+            if (calcScore(game.player) > 21) endGame('BUST !', 0);
         }
 
         function stand() {
@@ -265,37 +292,35 @@
             }
         }
 
-        // === FIN DE PARTIE : DÉDUCTION RÉELLE DES 2100 SATS ===
         async function endGame(msg = '', payout = null) {
             const player = calcScore(game.player), dealer = calcScore(game.dealer);
-            let result = '', win = 0;
+            let result = '', win = payout !== null ? payout : 0;
 
-            if (player > 21) { result = 'BUST !'; win = 0; }
-            else if (isBlackjack(game.dealer) && !isBlackjack(game.player)) { result = 'CROUPIER BLACKJACK !'; win = 0; }
-            else if (isBlackjack(game.player) && !isBlackjack(game.dealer)) { result = 'BLACKJACK !'; win = 3150; }
-            else if (dealer > 21 || player > dealer) { result = 'VICTOIRE !'; win = 4200; }
-            else if (player === dealer) { result = 'PUSH'; win = 2100; }
-            else { result = 'DÉFAITE'; win = 0; }
+            if (payout === null) {
+                if (player > 21) { result = 'BUST !'; win = 0; }
+                else if (isBlackjack(game.dealer) && !isBlackjack(game.player)) { result = 'CROUPIER BLACKJACK !'; win = 0; }
+                else if (isBlackjack(game.player) && !isBlackjack(game.dealer)) { result = 'BLACKJACK !'; win = game.bet * 2.5; }
+                else if (dealer > 21 || player > dealer) { result = 'VICTOIRE !'; win = game.bet * 2; }
+                else if (player === dealer) { result = 'PUSH'; win = game.bet; }
+                else { result = 'DÉFAITE'; win = 0; }
+            }
 
             $('#message').textContent = msg || result;
-            $('#message').style.color = win > 2100 ? '#10b981' : win === 2100 ? '#fbbf24' : '#ef4444';
+            $('#message').style.color = win > game.bet ? '#10b981' : win === game.bet ? '#fbbf24' : '#ef4444';
             show('message');
 
-            // === DÉDUCTION RÉELLE DES 2100 SATS ===
-            const net = win - 2100;
+            const net = win - game.bet;
             if (net < 0) {
                 await fetch(`${config.lnbitsUrl}/api/v1/payments`, {
                     method: 'POST',
                     headers: { 'X-Api-Key': config.adminKey, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         out: true,
-                        amount: 2100,
+                        amount: game.bet,
                         lnurl: SUB_WALLET_LNURL,
                         memo: 'Perte au Blackjack'
                     })
                 });
-            } else if (net > 0) {
-                // Gain → rien à faire, solde déjà crédité
             }
 
             await loadBalance();
@@ -305,7 +330,7 @@
 
         function newGame() { location.reload(); }
 
-        // === VIDER VERS SUB-WALLET ===
+        // === VIDER LE POT ===
         function openEmpty() {
             if (game.balance < 100) return alert('Rien à vider');
             $('#emptyAmount').textContent = game.balance.toLocaleString();
@@ -323,17 +348,33 @@
                         out: true,
                         amount: game.balance,
                         lnurl: SUB_WALLET_LNURL,
-                        memo: 'Plumage client'
+                        memo: 'Vider le pot'
                     })
                 });
                 const data = await res.json();
                 if (data.payment_hash) {
                     loadBalance();
                     closeEmpty();
-                    alert(`PLUMÉ ! ${game.balance} sats → casino`);
+                    alert(`POT VIDÉ ! ${game.balance} sats → casino`);
                 }
-            } catch (e) { alert('Erreur virement'); }
+            } catch (e) { alert('Erreur'); }
         }
+
+        // === RETRAIT DES GAINS ===
+        function openWithdraw() {
+            if (game.balance < 210) return alert('Minimum 210 sats');
+            $('#withdrawAmount').textContent = game.balance.toLocaleString();
+            const bolt11 = `lnbc${game.balance}n1p3...`; // LNbits génère le bolt11 via API
+            $('#withdrawLink').textContent = bolt11;
+            show('withdrawModal');
+        }
+
+        function copyWithdraw() {
+            const link = $('#withdrawLink').textContent;
+            navigator.clipboard.writeText(link).then(() => alert('LNURL copié !'));
+        }
+
+        function closeWithdraw() { hide('withdrawModal'); }
     </script>
 </body>
 </html>
