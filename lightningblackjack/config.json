@@ -1,0 +1,13 @@
+{
+  "name": "Lightning Blackjack",
+  "short_description": "Bitcoin Lightning Blackjack casino game",
+  "min_lnbits_version": "1.0.0",
+  "contributors": [
+    {
+      "name": "Silexperience210",
+      "uri": "https://github.com/Silexperience210",
+      "role": "Developer"
+    }
+  ],
+  "license": "MIT"
+}

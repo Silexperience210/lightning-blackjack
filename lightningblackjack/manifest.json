@@ -1,16 +1,9 @@
 {
-  "featured": false,
-  "tile": "/lightningblackjack/static/image/icon.png",
-  "deps": [],
-  "is_admin_only": false,
-  "is_hidden": false,
-  "name": "Lightning Blackjack",
-  "short_description": "Bitcoin Lightning Blackjack casino game",
-  "icon": "casino",
-  "contributors": [
-    "Silexperience210"
-  ],
-  "hidden": false,
-  "migration_module": "",
-  "db_name": "ext_lightningblackjack"
+  "repos": [
+    {
+      "id": "lightningblackjack",
+      "organisation": "Silexperience210",
+      "repository": "lightning-blackjack"
+    }
+  ]
 }
