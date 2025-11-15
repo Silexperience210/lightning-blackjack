@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIGHTNING BLACKJACK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Orbitron', sans-serif; }
+        body { background: #0a0a0f; color: white; margin: 0; padding: 0; overflow-x: hidden; }
+        .lightning-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background: radial-gradient(ellipse at 20% 30%, rgba(124,58,237,0.2), transparent 50%),
+                        radial-gradient(ellipse at 80% 70%, rgba(251,191,36,0.2), transparent 50%);
+            animation: pulse 6s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        .glow { 
+            box-shadow: 0 0 30px rgba(251,191,36,0.6), 0 0 60px rgba(124,58,237,0.4);
+            border: 2px solid; border-image: linear-gradient(135deg, #fbbf24, #7c3aed) 1;
+            border-radius: 1.5rem; padding: 1.5rem; margin: 1rem; background: rgba(10,10,15,0.95);
+        }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 1rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #0a0a0f; }
+        .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .text-glow { color: #fbbf24; text-shadow: 0 0 10px #fbbf24, 0 0 20px #fbbf24; }
+        .card {
+            width: 70px; height: 100px; background: white; color: black; border-radius: 10px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-weight: bold; font-size: 1.2rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            margin: 4px;
+        }
+        .card.red { color: #ef4444; }
+        .card.black { color: #1a1a1a; }
+        .card-back { background: linear-gradient(135deg, #1e1b4b, #7c3aed); color: #fbbf24; }
+        .hidden { display: none; }
+        .modal { background: rgba(10,10,15,0.95); margin: 15% auto; padding: 2rem; border-radius: 1.5rem; width: 90%; max-width: 400px; box-shadow: 0 0 50px rgba(251,191,36,0.7); }
+    </style>
+</head>
+<body>
+    <div class="lightning-bg"></div>
+
+    <!-- PAYWALL -->
+    <div id="paywallSection" class="max-w-md mx-auto mt-20">
+        <div class="glow text-center">
+            <h1 class="text-4xl text-glow mb-6">⚡ LIGHTNING BLACKJACK ⚡</h1>
+            <h2 class="text-2xl mb-4">PAYEZ POUR JOUER</h2>
+            <p class="text-sm mb-6">Montant = votre solde (min 2100 sats)</p>
+            <input type="number" id="payAmount" placeholder="ex: 5000" min="2100" class="w-full p-3 rounded-lg bg-gray-800 text-white mb-4">
+            <button onclick="createSession()" class="w-full p-4 bg-gradient-to-br from-yellow-500 to-amber-600 text-white rounded-xl font-bold text-xl">CRÉER SESSION</button>
+
+            <div id="invoiceDisplay" class="hidden mt-6">
+                <div class="p-3 bg-white rounded-xl inline-block mb-3"><canvas id="qrCode"></canvas></div>
+                <p class="text-xs break-all text-gray-400 mb-3" id="invoiceText"></p>
+                <button onclick="copyInvoice()" class="w-full btn btn-primary mb-2">COPIER FACTURE</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JEU -->
+    <div id="gameSection" class="hidden max-w-4xl mx-auto mt-10">
+        <div class="glow">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl text-glow">⚡ BLACKJACK ⚡</h1>
+                <div class="text-right">
+                    <div class="text-sm text-purple-400">SOLDE</div>
+                    <div class="text-3xl text-glow" id="balance">0</div>
+                    <button onclick="openEmpty()" class="btn btn-danger text-xs px-3 py-1 mt-2 mr-1">VIDER</button>
+                    <button onclick="openWithdraw()" class="btn btn-success text-xs px-3 py-1 mt-2">RETIRER</button>
+                </div>
+            </div>
+
+            <div id="message" class="text-center text-2xl font-bold mb-4 hidden"></div>
+
+            <div class="mb-6">
+                <h3 class="text-xl text-purple-400 text-center mb-2">CROUPIER <span id="dealerScore" class="text-glow"></span></h3>
+                <div id="dealerCards" class="flex justify-center flex-wrap"></div>
+            </div>
+
+            <div class="mb-6">
+                <h3 class="text-xl text-yellow-400 text-center mb-2">VOUS <span id="playerScore" class="text-glow"></span></h3>
+                <div id="playerCards" class="flex justify-center flex-wrap"></div>
+            </div>
+
+            <div id="bettingArea">
+                <h3 class="text-xl text-glow text-center mb-3">MISE (min 210 sats)</h3>
+                <div class="flex justify-center gap-2 mb-3">
+                    <button onclick="setBet(210)" class="w-14 h-14 rounded-full bg-red-600 text-white font-bold">210</button>
+                    <button onclick="setBet(500)" class="w-14 h-14 rounded-full bg-blue-600 text-white font-bold">500</button>
+                    <button onclick="setBet(1000)" class="w-14 h-14 rounded-full bg-green-600 text-white font-bold">1K</button>
+                    <button onclick="setBet(2100)" class="w-14 h-14 rounded-full bg-purple-600 text-white font-bold">2.1K</button>
+                </div>
+                <div class="text-2xl text-glow text-center mb-3" id="currentBet">0</div>
+                <button onclick="deal()" class="w-full btn btn-success text-xl py-3">JOUER</button>
+            </div>
+
+            <div id="actions" class="hidden flex justify-center gap-3 mt-4">
+                <button onclick="hit()" class="btn btn-primary">CARTE</button>
+                <button onclick="stand()" class="btn btn-success">RESTER</button>
+            </div>
+
+            <button id="newGameBtn" onclick="newGame()" class="hidden w-full btn btn-success mt-4">NOUVELLE PARTIE</button>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="emptyModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="modal text-center">
+            <h3 class="text-2xl text-glow mb-4">VIDER LE POT</h3>
+            <p class="mb-4">Envoi de <span id="emptyAmount" class="text-glow"></span> sats au casino</p>
+            <button onclick="emptyWallet()" class="w-full btn btn-danger">VIDER TOUT</button>
+            <button onclick="closeEmpty()" class="mt-2 text-gray-400">Annuler</button>
+        </div>
+    </div>
+
+    <div id="withdrawModal" class="hidden fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div class="modal text-center">
+            <h3 class="text-2xl text-glow mb-4">RETIRER LES GAINS</h3>
+            <p class="mb-4">Montant: <span id="withdrawAmount" class="text-glow"></span> sats</p>
+            <p class="text-xs break-all text-gray-400 mb-4" id="withdrawLink"></p>
+            <button onclick="copyWithdraw()" class="w-full btn btn-success mb-2">COPIER LNURL</button>
+            <button onclick="closeWithdraw()" class="text-gray-400">Fermer</button>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        const SERVER_URL = "/lightningblackjack";
+        const CASINO_LNURL = "{{ casino_lnurl }}";
+
+        let session = { invoiceKey: null, adminKey: null, lnbitsUrl: null };
+        let game = { balance: 0, bet: 0, player: [], dealer: [], playing: false, deck: [] };
+
+        const values = { 'A':11, 'K':10, 'Q':10, 'J':10, '10':10, '9':9, '8':8, '7':7, '6':6, '5':5, '4':4, '3':3, '2':2 };
+        const suits = ['♥', '♦', '♣', '♠'];
+        const ranks = Object.keys(values);
+
+        function $(s) { return document.querySelector(s); }
+        function hide(id) { $(`#${id}`).classList.add('hidden'); }
+        function show(id) { $(`#${id}`).classList.remove('hidden'); }
+
+        function createDeck() {
+            const deck = [];
+            for (let suit of suits) {
+                for (let rank of ranks) {
+                    deck.push({ rank, suit, value: values[rank] });
+                }
+            }
+            return deck.sort(() => Math.random() - 0.5);
+        }
+
+        function cardScore(cards) {
+            let score = cards.reduce((sum, c) => sum + c.value, 0);
+            let aces = cards.filter(c => c.rank === 'A').length;
+            while (score > 21 && aces > 0) {
+                score -= 10;
+                aces--;
+            }
+            return score;
+        }
+
+        function renderCard(card, hidden = false) {
+            const isRed = card.suit === '♥' || card.suit === '♦';
+            if (hidden) return `<div class="card card-back">🂠</div>`;
+            return `<div class="card ${isRed ? 'red' : 'black'}">${card.rank}<br>${card.suit}</div>`;
+        }
+
+        async function createSession() {
+            const amount = parseInt($('#payAmount').value);
+            if (amount < 2100) return alert('Min 2100 sats');
+
+            try {
+                const res = await fetch(`${SERVER_URL}/create-wallet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount })
+                });
+                
+                if (!res.ok) throw new Error('Erreur serveur');
+                
+                const data = await res.json();
+                session.invoiceKey = data.invoiceKey;
+                session.adminKey = data.adminKey;
+                session.lnbitsUrl = data.lnbitsUrl;
+
+                const pay = await fetch(`${data.lnbitsUrl}/api/v1/payments`, {
+                    method: 'POST',
+                    headers: { 'X-Api-Key': session.invoiceKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount, out: false, memo: 'Blackjack entry' })
+                });
+                const payment = await pay.json();
+
+                $('#invoiceText').textContent = payment.payment_request;
+                QRCode.toCanvas($('#qrCode'), payment.payment_request, { width: 220 });
+                show('invoiceDisplay');
+
+                const interval = setInterval(async () => {
+                    const check = await fetch(`${data.lnbitsUrl}/api/v1/payments/${payment.payment_hash}`, {
+                        headers: { 'X-Api-Key': session.invoiceKey }
+                    });
+                    const status = await check.json();
+                    if (status.paid) {
+                        clearInterval(interval);
+                        hide('invoiceDisplay');
+                        game.balance = amount;
+                        localStorage.setItem('game_balance', amount);
+                        localStorage.setItem('session', JSON.stringify(session));
+                        hide('paywallSection');
+                        show('gameSection');
+                        $('#balance').textContent = amount.toLocaleString();
+                    }
+                }, 2000);
+            } catch (e) { 
+                console.error(e);
+                alert('Erreur création session: ' + e.message); 
+            }
+        }
+
+        function copyInvoice() {
+            navigator.clipboard.writeText($('#invoiceText').textContent).then(() => alert('Copié !'));
+        }
+
+        window.onload = () => {
+            const saved = localStorage.getItem('game_balance');
+            const sess = localStorage.getItem('session');
+            if (saved && sess) {
+                game.balance = parseInt(saved);
+                session = JSON.parse(sess);
+                hide('paywallSection');
+                show('gameSection');
+                $('#balance').textContent = game.balance.toLocaleString();
+            }
+        };
+
+        function setBet(a) { 
+            if (!game.playing && a <= game.balance) { 
+                game.bet = a; 
+                $('#currentBet').textContent = a; 
+            } 
+        }
+
+        function deal() {
+            if (game.bet < 210) return alert('Mise min 210 sats');
+            if (game.bet > game.balance) return alert('Solde insuffisant');
+
+            game.playing = true;
+            game.deck = createDeck();
+            game.player = [game.deck.pop(), game.deck.pop()];
+            game.dealer = [game.deck.pop(), game.deck.pop()];
+
+            updateDisplay();
+            hide('bettingArea');
+            show('actions');
+
+            if (cardScore(game.player) === 21) {
+                endGame();
+            }
+        }
+
+        function hit() {
+            game.player.push(game.deck.pop());
+            updateDisplay();
+            if (cardScore(game.player) > 21) {
+                endGame();
+            }
+        }
+
+        function stand() {
+            while (cardScore(game.dealer) < 17) {
+                game.dealer.push(game.deck.pop());
+            }
+            endGame();
+        }
+
+        function updateDisplay() {
+            $('#dealerCards').innerHTML = renderCard(game.dealer[0]) + (game.playing ? '<div class="card card-back">🂠</div>' : game.dealer.slice(1).map(c => renderCard(c)).join(''));
+            $('#playerCards').innerHTML = game.player.map(c => renderCard(c)).join('');
+            $('#playerScore').textContent = cardScore(game.player);
+            if (!game.playing) {
+                $('#dealerScore').textContent = cardScore(game.dealer);
+            }
+        }
+
+        function endGame() {
+            game.playing = false;
+            hide('actions');
+            updateDisplay();
+
+            const pScore = cardScore(game.player);
+            const dScore = cardScore(game.dealer);
+            let win = 0;
+            let msg = '';
+
+            if (pScore > 21) {
+                msg = '❌ PERDU - Brûlé';
+            } else if (pScore === 21 && game.player.length === 2) {
+                win = game.bet * 2.5;
+                msg = '🎉 BLACKJACK! +' + win;
+            } else if (dScore > 21) {
+                win = game.bet * 2;
+                msg = '✅ VICTOIRE - Croupier brûlé! +' + win;
+            } else if (pScore > dScore) {
+                win = game.bet * 2;
+                msg = '✅ VICTOIRE! +' + win;
+            } else if (pScore === dScore) {
+                win = game.bet;
+                msg = '🤝 ÉGALITÉ';
+            } else {
+                msg = '❌ PERDU';
+            }
+
+            game.balance += win - game.bet;
+            localStorage.setItem('game_balance', game.balance);
+            $('#balance').textContent = game.balance.toLocaleString();
+            $('#message').textContent = msg;
+            show('message');
+            show('newGameBtn');
+        }
+
+        function newGame() {
+            game.player = [];
+            game.dealer = [];
+            game.playing = false;
+            $('#dealerCards').innerHTML = '';
+            $('#playerCards').innerHTML = '';
+            $('#dealerScore').textContent = '';
+            $('#playerScore').textContent = '';
+            $('#message').textContent = '';
+            hide('message');
+            hide('newGameBtn');
+            hide('actions');
+            show('bettingArea');
+        }
+
+        function openEmpty() {
+            $('#emptyAmount').textContent = game.balance;
+            show('emptyModal');
+        }
+
+        function closeEmpty() {
+            hide('emptyModal');
+        }
+
+        async function emptyWallet() {
+            try {
+                await fetch(`${SERVER_URL}/empty-wallet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminKey: session.adminKey, amount: game.balance, lnurl: CASINO_LNURL })
+                });
+                game.balance = 0;
+                localStorage.clear();
+                alert('POT VIDÉ !');
+                location.reload();
+            } catch(e) {
+                alert('Erreur: ' + e.message);
+            }
+        }
+
+        function openWithdraw() {
+            $('#withdrawAmount').textContent = game.balance;
+            $('#withdrawLink').textContent = `${CASINO_LNURL}?amount=${game.balance}`;
+            show('withdrawModal');
+        }
+
+        function closeWithdraw() {
+            hide('withdrawModal');
+        }
+
+        function copyWithdraw() {
+            navigator.clipboard.writeText($('#withdrawLink').textContent).then(() => alert('Copié !'));
+        }
+    </script>
+</body>
+</html>
