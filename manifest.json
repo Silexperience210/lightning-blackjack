@@ -1,0 +1,11 @@
+{
+  "name": "Lightning Blackjack",
+  "version": "0.0.2",
+  "github": "https://github.com/Silexperience210/lightning-blackjack",
+  "description": "Joue au Blackjack payant via Lightning Network ! Mise 100 sats.",
+  "author": "Silexperience",
+  "icon": "static/image/icon.png",
+  "tags": ["games", "lightning", "casino"],
+  "lnbits_version": "0.10.0",
+  "category": "Fun & Games"
+}
